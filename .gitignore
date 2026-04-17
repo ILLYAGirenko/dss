@@ -1,0 +1,19 @@
+# CMake build directories and files
+/cmake-build-*/
+/build/
+/out/
+CMakeCache.txt
+CMakeFiles/
+
+# IDE configurations (JetBrains/CLion)
+.idea/
+*.iws
+*.iml
+
+# Compiled binaries and object files
+*.exe
+*.dll
+*.so
+*.dylib
+*.o
+*.obj

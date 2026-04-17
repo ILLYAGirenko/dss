@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <cmath>
 #include <vector>
 #include <functional>
@@ -10,7 +11,7 @@ double celsiusToFahrenheit(double c) {
 }
 
 // Calculates Vapor Pressure Deficit
-double calculateVDP(double temp, double humidity) {
+double calculateVPD(double temp, double humidity) {
     return 0.6108 *  exp(17.27 * temp / (temp + 237.3)) * (1.0 - humidity / 100.0);
 }
 
@@ -38,5 +39,22 @@ const std::function<double(double)>& func
 
 
 int main() {
+    // Test values
+    std::vector<double> temps = {18.5, 22.0, 31.7, 15.2, 25.8};
 
+    // Test 1: Convert all temperature from Celsius to Fahrenheit
+    auto inFahrenheit = transformReadings(temps, celsiusToFahrenheit);
+    std::cout << "In Fahrenheit: " << std::endl;
+    for (double val : inFahrenheit) {
+        std::cout << val << " ";
+    }
+
+    // Test 2: Calculate VPD for all temperatures
+    auto vpdValues = transformReadings(temps,[](double t) {
+         return calculateVPD(t, 65.0);
+    });
+    std::cout << "VPD: " << std::endl;
+    for (double val : vpdValues) {
+        std::cout << std::setprecision(3) << val  << " ";
+    }
 }
