@@ -4,8 +4,15 @@
 #include <vector>
 #include <functional>
 
+// =========================================================================
+// GLOBAL CONSTANTS
+// =========================================================================
 const double MAX_CRITICAL_TEMPERATURE = 35.0;
 const double MIN_CRITICAL_HUMIDITY = 40.0;
+
+// =========================================================================
+// DATA STRUCTURES
+// =========================================================================
 
 // Struct for storing data from sensors
 struct SensorReading {
@@ -13,6 +20,10 @@ struct SensorReading {
     double temperature; // Celsius
     double humidity; // %
 };
+
+// =========================================================================
+// PURE FUNCTIONS 
+// =========================================================================
 
 // Converts temperature from Celsius to Fahrenheit
 double celsiusToFahrenheit(double c) {
@@ -31,6 +42,19 @@ bool isOptimalTemperature(double temp) {
     return minTemp <= temp && temp <= maxTemp;
 }
 
+// Normalizes a value to a scale of [0.0, 1.0]
+double normalize(double x, double min, double max) {
+    return (x - min) / (max - min);
+}
+
+// Returns 1.0 if the value exceeds the threshold, otherwise returns the value itself
+double applyThreshold(double x, double threshold) {
+    return (x > threshold) ? 1.0 : x;
+}
+
+// =========================================================================
+// HIGHER-ORDER FUNCTIONS
+// =========================================================================
 
 // Transforms a collection of sensor readings by applying a specific function to each element
 std::vector<double> transformReadings(
@@ -45,28 +69,31 @@ const std::function<double(double)>& func
     return result;
 }
 
+// Combines two mathematical functions f and g into a single pipeline f(g(x))
+std::function <double(double)> compose(
+    const std::function<double(double)> &f,
+    const std::function<double(double)> &g) {
+    return [f,g](double x) {return f(g(x));};
+}
+
 
 
 int main() {
     // Test values
-    std::vector<SensorReading> readings = {
-        {1, 22.5, 68.0}, // norm
-        {2, 37.2, 45.0}, // critical temperature
-        {3, 24.1, 35.5}, // critical humidity
-        {4, 19.8, 72.0}, // norm
-        {5, 38.0, 38.0}, // both critical
-        };
-    // Stores sensor readings that exceed safe thresholds
-    std::vector<SensorReading> criticalZones;
-    // Checks if the sensor data indicates critical conditions for the plants
+    std::vector<double> temps = {18.5, 22.0, 31.7, 15.2, 25.8};
 
-    std::copy_if(readings.begin(), readings.end(), std::back_inserter(criticalZones),
-        [](const SensorReading& r) {
-            return r.temperature > MAX_CRITICAL_TEMPERATURE || r.humidity < MIN_CRITICAL_HUMIDITY;
-        });
+    auto normalizeTemp = [](double t) {return normalize(t, 0.0, 50.0);};
+    // Set threshold to 0.7
+    auto applyAlertThreshold = [](double t) {return applyThreshold(t, 0.7);};
 
-    for (auto& zone : criticalZones) {
-        std::cout << "[ALERT] Zone " << zone.id << ": Temperature " << std::fixed << std::setprecision(1)
-        << zone.temperature << "C, Humidity " << zone.humidity << std::endl;
+    auto tempPipeline = compose(applyAlertThreshold, normalizeTemp);
+
+    auto results = transformReadings(temps, tempPipeline);
+
+    for (double val : results) {
+        std::cout << std::fixed << std::setprecision(2) << val << " " ;
+        if (val == 1.0) {
+            std::cout << "(alert!) ";
+        }
     }
 }
