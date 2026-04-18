@@ -3,6 +3,8 @@
 #include <cmath>
 #include <vector>
 #include <functional>
+#include <numeric>
+#include <algorithm>
 
 // =========================================================================
 // GLOBAL CONSTANTS
@@ -22,7 +24,7 @@ struct SensorReading {
 };
 
 // =========================================================================
-// PURE FUNCTIONS 
+// PURE FUNCTIONS
 // =========================================================================
 
 // Converts temperature from Celsius to Fahrenheit
@@ -80,20 +82,78 @@ std::function <double(double)> compose(
 
 int main() {
     // Test values
-    std::vector<double> temps = {18.5, 22.0, 31.7, 15.2, 25.8};
+    std::vector<SensorReading> readings = {
+        {1, 22.5, 68.0}, // norm
+        {2, 37.2, 45.0}, // critical temperature
+        {3, 24.1, 35.5}, // critical humidity
+        {4, 19.8, 72.0}, // norm
+        {5, 38.0, 38.0}, // both critical
+        };
 
-    auto normalizeTemp = [](double t) {return normalize(t, 0.0, 50.0);};
-    // Set threshold to 0.7
-    auto applyAlertThreshold = [](double t) {return applyThreshold(t, 0.7);};
+    // Filter stress zones (Temperature > 28 or < 16)
+    std::vector<SensorReading> stressZones;
+    std::copy_if(readings.begin(), readings.end(),
+    std::back_inserter(stressZones),
+    [](const SensorReading& r) {
+    return r.temperature > 28.0 || r.temperature < 16.0;
+    });
 
-    auto tempPipeline = compose(applyAlertThreshold, normalizeTemp);
+    // Average temperature in stress zones
+    double avgStressTemp = 0.0;
+    if (!stressZones.empty()) {
+        avgStressTemp = std::accumulate(
+    stressZones.begin(), stressZones.end(), 0.0,
+[](double sum, const SensorReading& r) {
+        return sum + r.temperature;
+        }) / stressZones.size();
+        std::cout << "Average stress temperature: "
+        <<  std::fixed << std::setprecision(1) << avgStressTemp << std::endl;
+    }
+    else {
+        std::cout << "No stress temperature found!" << std::endl;
+    }
 
-    auto results = transformReadings(temps, tempPipeline);
 
-    for (double val : results) {
-        std::cout << std::fixed << std::setprecision(2) << val << " " ;
-        if (val == 1.0) {
-            std::cout << "(alert!) ";
+    // Calculates the number of hours the greenhouse was in a critical state.
+    // Assuming each record in the 'readings' vector represents exactly one hour.
+    // Condition for critical state: Temperature > 35 or Humidity < 40.
+    int criticalHoursCount = std::count_if(
+        readings.begin(), readings.end(),
+        [](const SensorReading& r) {
+            return r.temperature > MAX_CRITICAL_TEMPERATURE || r.humidity < MIN_CRITICAL_HUMIDITY;
         }
+    );
+
+    std::cout << "Critical conditions lasted for: " << criticalHoursCount << " hours" << std::endl;
+
+
+    // Average VPD across all readings
+    double avgVPD = 0.0;
+    if (!readings.empty()) {
+        avgVPD = std::accumulate(
+            readings.begin(), readings.end(), 0.0,
+            [](double sum, const SensorReading& r) {
+                return sum + calculateVPD(r.temperature, r.humidity);
+            }
+        ) / readings.size();
+        std::cout << "Average VPD: "
+        << std::fixed << std::setprecision(3) << avgVPD << std::endl;
+    }
+
+    // VPD Recommendations
+    std::cout << "Recommendations:" << std::endl;
+    if (avgVPD < 0.4) {
+        std::cout << "Average VPD less than 0.4 - too humid, open ventilation" << std::endl;
+    }
+    else if (avgVPD >= 0.4 && avgVPD <= 1.2) {
+        std::cout << "Average VPD between 0.4 and 1.2 - optimal, don't do anything" << std::endl;
+    }
+    else if (avgVPD > 1.6) {
+        std::cout << "Average VPD more than 1.6 - too dry, turn on humidification system" << std::endl;
+    }
+    else {
+        std::cout << "Keep monitoring VPD data" <<std::endl;
     }
 }
+
+
